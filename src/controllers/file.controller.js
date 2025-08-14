@@ -14,15 +14,18 @@ export const uploadFile = async (req, res) => {
     }
 
     const userId = req.user; // set by auth middleware
-    const folderId = req.body.folderId || null;
+    const folderId = req.body.folderId;
     const bucket = process.env.BUCKET_NAME || "user-files";
 
     const originalName = req.file.originalname;
     const ext = originalName.includes(".") ? originalName.split(".").pop() : "";
     const uniqueName = `${uuidv4()}${ext ? "." + ext : ""}`;
 
+     // Validate folderId
+    const validFolderId = folderId && typeof folderId === "string" ? folderId : null;
+
     // Organize by user/folder for easier housekeeping
-    const path = `${userId}/${folderId || "root"}/${uniqueName}`;
+    const path = `${userId}/${validFolderId || "root"}/${uniqueName}`;
 
     // Upload to Supabase Storage (private bucket)
     const { error: uploadError } = await supabase.storage
@@ -36,11 +39,11 @@ export const uploadFile = async (req, res) => {
       // common cause: duplicate path when upsert=false
       return res.status(500).json({ message: "Upload failed", detail: uploadError.message });
     }
-
+   
     // Save metadata
     const meta = {
       user_id: userId,
-      folder_id: folderId,
+      folder_id: validFolderId,
       name: originalName,
       type: req.file.mimetype,
       size: req.file.size,
