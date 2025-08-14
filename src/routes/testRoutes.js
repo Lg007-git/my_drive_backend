@@ -1,12 +1,13 @@
 import express from "express";
-import supabase from "../config/supabaseClient.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.get("/test", async (req, res) => {
-  const { data, error } = await supabase.from("users").select("*");
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+router.get("/private", protect, (req, res) => {
+  res.json({
+    message: "You have access to this protected route",
+    userId: req.user.id
+  });
 });
 
 export default router;

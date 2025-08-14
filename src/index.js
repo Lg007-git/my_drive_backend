@@ -9,7 +9,7 @@ const app = express();
 app.use(express.json());
 
 // Test Route
-app.use("/api", testRoutes);
+app.use("/test", testRoutes);
 app.use("/auth", authRoutes);
 
 app.listen(process.env.PORT, () => {
