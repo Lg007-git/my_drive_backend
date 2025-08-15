@@ -1,6 +1,8 @@
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuidv4,validate as isUUID } from "uuid";
 import supabase from "../config/supabaseClient.js";
 import { insertFileMeta, listFilesByUser } from "../models/file.model.js";
+import { softDeleteFile, restoreFile } from "../models/file.model.js";
+
 
 export const uploadFile = async (req, res) => {
   try {
@@ -14,18 +16,22 @@ export const uploadFile = async (req, res) => {
     }
 
     const userId = req.user; // set by auth middleware
-    const folderId = req.body.folderId;
-    const bucket = process.env.BUCKET_NAME || "user-files";
+    
+    let folderIdRaw = req.body.folderId;
+      // Validate folderId
+    // const validFolderId = folderIdRaw && typeof folderIdRaw === "string" ? folderIdRaw : null;
+
+    folderIdRaw = folderIdRaw && isUUID(folderIdRaw) ? folderIdRaw : null;
+    const bucket = process.env.BUCKET_NAME;
 
     const originalName = req.file.originalname;
     const ext = originalName.includes(".") ? originalName.split(".").pop() : "";
     const uniqueName = `${uuidv4()}${ext ? "." + ext : ""}`;
 
-     // Validate folderId
-    const validFolderId = folderId && typeof folderId === "string" ? folderId : null;
+   
 
     // Organize by user/folder for easier housekeeping
-    const path = `${userId}/${validFolderId || "root"}/${uniqueName}`;
+    const path = `${userId}/${folderIdRaw || "root"}/${uniqueName}`;
 
     // Upload to Supabase Storage (private bucket)
     const { error: uploadError } = await supabase.storage
@@ -43,7 +49,7 @@ export const uploadFile = async (req, res) => {
     // Save metadata
     const meta = {
       user_id: userId,
-      folder_id: validFolderId,
+      folder_id: folderIdRaw,
       name: originalName,
       type: req.file.mimetype,
       size: req.file.size,
@@ -78,5 +84,28 @@ export const getMyFiles = async (req, res) => {
     res.json({ files });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch files" });
+  }
+};
+
+
+// Soft delete a file
+export const deleteFile = async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const deleted = await softDeleteFile(fileId);
+    res.json({ message: "File moved to trash", file: deleted });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Restore a file
+export const restoreFileController = async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const restored = await restoreFile(fileId);
+    res.json({ message: "File restored", file: restored });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };

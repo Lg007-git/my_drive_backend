@@ -4,7 +4,7 @@ import cors from "cors";
 import testRoutes from "./routes/testRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import fileRoutes from "./routes/fileRoutes.js";
-
+import folderRoutes from "./routes/folderRoutes.js";
 
 dotenv.config();
 const app = express();
@@ -17,6 +17,8 @@ app.get("/", (req, res) => res.send("🚀 Google Drive Clone Backend is running"
 app.use("/test", testRoutes);
 app.use("/auth", authRoutes);
 app.use("/files", fileRoutes);
+app.use("/folders", folderRoutes);
+
 
 app.listen(process.env.PORT, () => {
   console.log(`Server running on port ${process.env.PORT}`);

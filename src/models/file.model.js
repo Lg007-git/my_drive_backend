@@ -25,3 +25,29 @@ export async function listFilesByUser(userId, { folderId = null, limit = 50, off
   if (error) throw error;
   return data;
 }
+
+// Soft delete a file
+export async function softDeleteFile(fileId) {
+  const { data, error } = await supabase
+    .from("files")
+    .update({ is_trashed: true, deleted_at: new Date() })
+    .eq("id", fileId)
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return data;
+}
+
+// Restore a file
+export async function restoreFile(fileId) {
+  const { data, error } = await supabase
+    .from("files")
+    .update({ is_trashed: false, deleted_at: null })
+    .eq("id", fileId)
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return data;
+}

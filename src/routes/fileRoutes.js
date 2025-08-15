@@ -3,7 +3,7 @@ import multer from "multer";
 import supabase from "../config/supabaseClient.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { v4 as uuidv4 } from "uuid";
-import { uploadFile, getMyFiles } from "../controllers/file.controller.js";
+import { uploadFile, getMyFiles,deleteFile, restoreFileController } from "../controllers/file.controller.js";
 
 const router = express.Router();
 
@@ -34,5 +34,8 @@ const upload = multer({ storage });
 // });
 router.post("/upload", protect, upload.single("file"), uploadFile);
 router.get("/", protect, getMyFiles);
+// Files
+router.delete("/file/:fileId", protect, deleteFile);
+router.post("/file/restore/:fileId", protect, restoreFileController);
 
 export default router;
