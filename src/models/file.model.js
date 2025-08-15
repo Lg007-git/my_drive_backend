@@ -1,5 +1,16 @@
 import supabase from "../config/supabaseClient.js";
 
+export async function getFileById(fileId, userId) {
+  const { data, error } = await supabase
+    .from("files")
+    .select("*")
+    .eq("id", fileId)
+    .eq("user_id", userId)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function insertFileMeta(meta) {
   const { data, error } = await supabase
     .from("files")
@@ -27,11 +38,12 @@ export async function listFilesByUser(userId, { folderId = null, limit = 50, off
 }
 
 // Soft delete a file
-export async function softDeleteFile(fileId) {
+export async function softDeleteFile(fileId,userId) {
   const { data, error } = await supabase
     .from("files")
-    .update({ is_trashed: true, deleted_at: new Date() })
+    .update({ is_trashed: true, deleted_at: new Date().toISOString()  })
     .eq("id", fileId)
+    .eq("user_id", userId)
     .select()
     .single();
   
@@ -40,14 +52,27 @@ export async function softDeleteFile(fileId) {
 }
 
 // Restore a file
-export async function restoreFile(fileId) {
+export async function restoreFile(fileId, userId) {
   const { data, error } = await supabase
     .from("files")
     .update({ is_trashed: false, deleted_at: null })
     .eq("id", fileId)
+    .eq("user_id", userId)
     .select()
     .single();
   
+  if (error) throw error;
+  return data;
+}
+
+export async function hardDeleteFile(fileId, userId) {
+  const { data, error } = await supabase
+    .from("files")
+    .delete()
+    .eq("id", fileId)
+    .eq("user_id", userId)
+    .select()
+    .single();
   if (error) throw error;
   return data;
 }

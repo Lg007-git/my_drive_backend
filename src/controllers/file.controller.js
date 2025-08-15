@@ -1,52 +1,54 @@
-import { v4 as uuidv4,validate as isUUID } from "uuid";
+import { v4 as uuidv4, validate as isUUID } from "uuid";
 import supabase from "../config/supabaseClient.js";
-import { insertFileMeta, listFilesByUser } from "../models/file.model.js";
-import { softDeleteFile, restoreFile } from "../models/file.model.js";
+import {
+  insertFileMeta,
+  listFilesByUser,
+  softDeleteFile,
+  restoreFile,
+  getFileById,
+  hardDeleteFile,
+} from "../models/file.model.js";
+import { getSignedUrl } from "../utils/supabaseStorage.js"; // ✅ Needed for getFile()
 
-
+// ------------------- Upload File -------------------
 export const uploadFile = async (req, res) => {
   try {
-    // Multer puts file in req.file (memory buffer)
-    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+    if (!req.file)
+      return res.status(400).json({ message: "No file uploaded" });
 
-    // size check (multer already enforces, but double-check for nicer msg)
-    const maxBytes = (parseInt(process.env.MAX_FILE_SIZE_MB || "100", 10)) * 1024 * 1024;
+    const maxBytes =
+      parseInt(process.env.MAX_FILE_SIZE_MB || "100", 10) * 1024 * 1024;
     if (req.file.size > maxBytes) {
-      return res.status(413).json({ message: `File too large. Max ${process.env.MAX_FILE_SIZE_MB} MB` });
+      return res.status(413).json({
+        message: `File too large. Max ${process.env.MAX_FILE_SIZE_MB} MB`,
+      });
     }
 
-    const userId = req.user; // set by auth middleware
-    
+    const userId = req.user;
     let folderIdRaw = req.body.folderId;
-      // Validate folderId
-    // const validFolderId = folderIdRaw && typeof folderIdRaw === "string" ? folderIdRaw : null;
-
     folderIdRaw = folderIdRaw && isUUID(folderIdRaw) ? folderIdRaw : null;
+
     const bucket = process.env.BUCKET_NAME;
-
     const originalName = req.file.originalname;
-    const ext = originalName.includes(".") ? originalName.split(".").pop() : "";
+    const ext = originalName.includes(".")
+      ? originalName.split(".").pop()
+      : "";
     const uniqueName = `${uuidv4()}${ext ? "." + ext : ""}`;
-
-   
-
-    // Organize by user/folder for easier housekeeping
     const path = `${userId}/${folderIdRaw || "root"}/${uniqueName}`;
 
-    // Upload to Supabase Storage (private bucket)
     const { error: uploadError } = await supabase.storage
       .from(bucket)
       .upload(path, req.file.buffer, {
         contentType: req.file.mimetype,
-        upsert: false
+        upsert: false,
       });
 
     if (uploadError) {
-      // common cause: duplicate path when upsert=false
-      return res.status(500).json({ message: "Upload failed", detail: uploadError.message });
+      return res
+        .status(500)
+        .json({ message: "Upload failed", detail: uploadError.message });
     }
-   
-    // Save metadata
+
     const meta = {
       user_id: userId,
       folder_id: folderIdRaw,
@@ -54,58 +56,123 @@ export const uploadFile = async (req, res) => {
       type: req.file.mimetype,
       size: req.file.size,
       path,
-      bucket
+      bucket,
     };
 
     const saved = await insertFileMeta(meta);
 
     res.status(201).json({
       message: "File uploaded",
-      file: saved
+      file: saved,
     });
   } catch (err) {
-    // Multer size limit error
     if (err.code === "LIMIT_FILE_SIZE") {
-      return res.status(413).json({ message: `File too large. Max ${process.env.MAX_FILE_SIZE_MB} MB` });
+      return res.status(413).json({
+        message: `File too large. Max ${process.env.MAX_FILE_SIZE_MB} MB`,
+      });
     }
     res.status(500).json({ message: err.message || "Upload error" });
   }
 };
 
+// ------------------- Get My Files -------------------
 export const getMyFiles = async (req, res) => {
   try {
     const userId = req.user;
     const { folderId, limit, offset } = req.query;
+
     const files = await listFilesByUser(userId, {
       folderId: folderId || null,
       limit: parseInt(limit || "50", 10),
-      offset: parseInt(offset || "0", 10)
+      offset: parseInt(offset || "0", 10),
     });
+
     res.json({ files });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch files" });
   }
 };
 
-
-// Soft delete a file
+// ------------------- Soft Delete -------------------
 export const deleteFile = async (req, res) => {
   try {
     const { fileId } = req.params;
-    const deleted = await softDeleteFile(fileId);
+    const userId = req.user;
+    const deleted = await softDeleteFile(fileId, userId);
     res.json({ message: "File moved to trash", file: deleted });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// Restore a file
+// ------------------- Restore File -------------------
 export const restoreFileController = async (req, res) => {
   try {
     const { fileId } = req.params;
-    const restored = await restoreFile(fileId);
+    const userId = req.user;
+    const restored = await restoreFile(fileId, userId);
     res.json({ message: "File restored", file: restored });
   } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const permanentDelete = async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const userId = req.user;
+
+    // Get file record (only if it belongs to this user)
+    const file = await getFileById(fileId, userId);
+
+    // Enforce: only allow permanent delete from Trash
+    if (!file.is_trashed) {
+      return res.status(400).json({ message: "Move file to Trash before permanent delete" });
+    }
+
+    // Remove from storage first (ignore missing file errors gracefully)
+    const { error: storageErr } = await supabase.storage
+      .from(file.bucket)
+      .remove([file.path]);
+    // storageErr may be null even if file didn't exist; we proceed regardless
+
+    // Remove DB row
+    await hardDeleteFile(fileId, userId);
+
+    res.json({ message: "File permanently deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Permanent delete failed" });
+  }
+};
+
+// ------------------- Get File with Signed URL -------------------
+export const getFile = async (req, res) => {
+  try {
+    const { fileId } = req.params;
+
+    const { data: fileData, error: fileError } = await supabase
+      .from("files")
+      .select("*")
+      .eq("id", fileId)
+      .single();
+
+    if (fileError || !fileData) {
+      return res.status(404).json({ message: "File not found" });
+    }
+
+    // Generate signed URL for 1 minute (60 seconds)
+    const signedUrl = await getSignedUrl(fileData.bucket, fileData.path, 60);
+
+    res.json({
+      id: fileData.id,
+      name: fileData.name,
+      type: fileData.type,
+      size: fileData.size,
+      created_at: fileData.created_at,
+      signedUrl,
+    });
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ message: err.message });
   }
 };
