@@ -46,5 +46,4 @@ router.get("/:fileId", protect, checkPermission(["viewer", "editor", "owner"]), 
 
 
 router.delete("/file/permanent/:fileId", protect, permanentDelete);
-
 export default router;

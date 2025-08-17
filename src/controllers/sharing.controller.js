@@ -41,7 +41,7 @@ export const getFilePermissionController = async (req, res) => {
   try {
     const permissions = await getFilePermissions(fileId, userId);
     if (!permissions || permissions.length === 0) {
-      return res.status(404).json({ message: "No access" });
+      return res.status(404).json({ message: "Not yet shared" });
     }
 
     res.json({ permissions });

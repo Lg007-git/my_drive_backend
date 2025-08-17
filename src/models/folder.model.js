@@ -19,7 +19,13 @@ export async function listFoldersByUser(userId, { parentFolderId = null } = {}) 
     .eq("user_id", userId)
     .order("created_at", { ascending: true });
 
-  if (parentFolderId) query = query.eq("parent_folder_id", parentFolderId);
+  if (parentFolderId === null) {
+    // only root folders
+    query = query.is("parent_folder_id", null);
+  } else {
+    // only child folders of currentFolderId
+    query = query.eq("parent_folder_id", parentFolderId);
+  }
 
   const { data, error } = await query;
   if (error) throw error;

@@ -29,7 +29,7 @@ export const getFolders = async (req, res) => {
     const userId = req.user;
     const { parentId } = req.query;
 
-    const folders = await listFoldersByUser(userId, parentId);
+    const folders = await listFoldersByUser(userId, { parentFolderId: parentId || null});
     res.json({ folders });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch folders" });
