@@ -17,6 +17,7 @@ export async function listFoldersByUser(userId, { parentFolderId = null } = {}) 
     .from("folders")
     .select("*")
     .eq("user_id", userId)
+    .eq("is_trashed", false)
     .order("created_at", { ascending: true });
 
   if (parentFolderId === null) {
@@ -70,4 +71,26 @@ export async function restoreFolder(folderId) {
   if (fileError) throw fileError;
 
   return folderData;
+}
+
+export async function deleteFolderById(folderId) {
+  const { data, error } = await supabase
+    .from("folders")
+    .delete()
+    .eq("id", folderId)
+
+  if (error) throw error;
+  return data;
+}
+
+export async function renameFolder(folderId, newName) {
+  const { data, error } = await supabase
+    .from("folders")
+    .update({ name: newName })
+    .eq("id", folderId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 }

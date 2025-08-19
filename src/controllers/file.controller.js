@@ -6,7 +6,7 @@ import {
   softDeleteFile,
   restoreFile,
   getFileById,
-  hardDeleteFile,
+  hardDeleteFile, renameFile
 } from "../models/file.model.js";
 import { getSignedUrl } from "../utils/supabaseStorage.js"; // ✅ Needed for getFile()
 
@@ -105,6 +105,26 @@ export const deleteFile = async (req, res) => {
   }
 };
 
+export const getTrashedFiles = async (req, res) => {
+  // console.log("reached to getTrashedFiles code");
+  try {
+    const userId = req.user;
+
+    const { data, error } = await supabase
+      .from("files")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("is_trashed",true)   // assuming you use `is_trashed`
+      .order("deleted_at", { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ files: data });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to fetch trash" });
+  }
+};
+
 // ------------------- Restore File -------------------
 export const restoreFileController = async (req, res) => {
   try {
@@ -173,6 +193,23 @@ export const getFile = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
+export const renameFileController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    if (!name || name.trim() === "") {
+      return res.status(400).json({ message: "Name is required" });
+    }
+
+    const updated = await renameFile(id, name);
+    res.json({ message: "File renamed", file: updated });
+  } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };

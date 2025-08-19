@@ -3,7 +3,7 @@ import multer from "multer";
 import supabase from "../config/supabaseClient.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { v4 as uuidv4 } from "uuid";
-import { uploadFile, getMyFiles,deleteFile, restoreFileController ,permanentDelete } from "../controllers/file.controller.js";
+import { uploadFile, getMyFiles,deleteFile, restoreFileController ,permanentDelete, getTrashedFiles,renameFileController } from "../controllers/file.controller.js";
 import { checkPermission } from "../middleware/permissionMiddleware.js";
 import * as fileController from "../controllers/file.controller.js";
 
@@ -39,11 +39,13 @@ router.post("/upload", protect, upload.single("file"), uploadFile);
 router.get("/", protect, getMyFiles);
 // Files
 router.delete("/file/:fileId", protect, deleteFile);
+router.get("/trash", protect, getTrashedFiles);
 router.post("/file/restore/:fileId", protect, restoreFileController);
 
 // Secure file access with role checks
 router.get("/:fileId", protect, checkPermission(["viewer", "editor", "owner"]), fileController.getFile);
 
+router.patch("/:id", protect, renameFileController);
 
 router.delete("/file/permanent/:fileId", protect, permanentDelete);
 export default router;

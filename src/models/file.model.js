@@ -76,3 +76,15 @@ export async function hardDeleteFile(fileId, userId) {
   if (error) throw error;
   return data;
 }
+
+export async function renameFile(fileId, newName) {
+  const { data, error } = await supabase
+    .from("files")
+    .update({ name: newName })
+    .eq("id", fileId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
