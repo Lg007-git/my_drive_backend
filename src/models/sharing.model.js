@@ -6,7 +6,7 @@ export const shareFile = async ({ fileId, sharedBy, sharedWith, role }) => {
 
   const { data, error } = await supabase
     .from("shared_files")
-    .insert([{ file_id: fileId, shared_by: sharedBy, shared_with: sharedWith, role, link }])
+    .insert([{ file_id: fileId, shared_by: sharedBy, shared_with: sharedWith || null, role, link }])
     .select()
     .single();
 

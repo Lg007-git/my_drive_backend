@@ -1,6 +1,8 @@
 import { shareFile, getFilePermissions } from "../models/sharing.model.js";
 import { getSignedUrl } from "../utils/supabaseStorage.js";
 import supabase from "../config/supabaseClient.js";
+import dotenv from "dotenv";
+dotenv.config();
 
 export const shareFileController = async (req, res) => {
   const { fileId, sharedWith, role } = req.body;
@@ -22,13 +24,16 @@ export const shareFileController = async (req, res) => {
     }
 
     // Generate signed URL (5 minutes)
-    const signedUrl = await getSignedUrl(file.bucket, file.path, 300);
+    const signedUrl = await getSignedUrl(file.bucket, file.path, 3000);
+
+    const generalUrl = shared.link ? `${process.env.APP_URL}/share/${shared.link}` : null;
 
     res.json({
       message: "File shared successfully",
       shared,
-      file: { ...file, signedUrl },
+      file: { ...file, signedUrl,generalUrl },
     });
+    // console.log(`File ${fileId} shared with ${sharedWith} as ${role} and ${signedUrl} and ${generalUrl}`);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -49,3 +54,4 @@ export const getFilePermissionController = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
