@@ -57,7 +57,7 @@ export const DeleteFolderById = async (req, res) => {
   try {
     // console.log("Deleting folder:", req.params.folderId);
     const { id } = req.params;
-    console.log(id);
+    // console.log(id);
     const deleted = await deleteFolderById(id);
     res.json({ message: "Folder deleted", folder: deleted });
   } catch (err) {
