@@ -43,7 +43,7 @@ export const getFolders = async (req, res) => {
 export const softdeleteFolder = async (req, res) => {
   
   try {
-    console.log("Soft deleting folder:", req.params.folderId);
+    // console.log("Soft deleting folder:", req.params.folderId);
     const { folderId } = req.params;
     const deleted = await softDeleteFolder(folderId);
     res.json({ message: "Folder moved to trash", folder: deleted });
